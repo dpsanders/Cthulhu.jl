@@ -75,15 +75,7 @@ function find_callsites(CI, mi, slottypes; params=current_params(), kwargs...)
                 if isdefined(types[1], :instance) && is_return_type(types[1].instance)
                     callsite = process_return_type(id, c, rt)
                 else
-                    # Filter out abstract signatures
-                    # otherwise generated functions get crumpy
-                    if any(isabstracttype, types) || any(T->(T isa Union || T isa UnionAll), types)
-                        continue
-                    end
-
-                    mi = first_method_instance(Tuple{types...})
-                    mi == nothing && continue
-                    callsite = Callsite(id, MICallInfo(mi, rt))
+                    callsite = Callsite(id, callinfo(Tuple{types...}, rt, params=params))
                 end
             else c.head === :foreigncall
                 # special handling of jl_threading_run
@@ -91,9 +83,7 @@ function find_callsites(CI, mi, slottypes; params=current_params(), kwargs...)
                 if c.args[1] isa QuoteNode && c.args[1].value === :jl_threading_run
                     func = c.args[7]
                     ftype = widenconst(argextype(func, CI, sptypes, slottypes))
-                    mi = first_method_instance(Tuple{ftype.parameters...}, params=params)
-                    mi == nothing && continue
-                    callsite = Callsite(id, MICallInfo(mi, Nothing))
+                    callsite = Callsite(id, callinfo(ftype, nothing, params=params))
                 end
             end
 
@@ -149,6 +139,25 @@ if :trace_inference_limits in fieldnames(Core.Compiler.Params)
     current_params() = Core.Compiler.CustomParams(ccall(:jl_get_world_counter, UInt, ()); trace_inference_limits=true)
 else
     current_params() = Core.Compiler.Params(ccall(:jl_get_world_counter, UInt, ()))
+end
+
+function callinfo(sig, rt; params=current_params())
+    @show sig
+    methds = Base._methods_by_ftype(Tuple{sig.parameters...}, 1, params.world)
+    (methds === false || length(methds) < 1) && return FailedCallInfo(sig, rt)
+    callinfos = CallInfo[]
+    for x in methds
+        meth = x[3]
+        if isdefined(meth, :generator) && !isdispatchtuple(Tuple{sig.parameters[2:end]...})
+            push!(callinfos, GeneratedCallInfo(x, rt))
+        end
+        mi = Compiler.code_for_method(meth, sig, x[2], params.world)
+        push!(callinfos, MICallInfo(mi, rt)) 
+    end
+    
+    @assert length(callinfos) != 0
+    length(callinfos) == 1 && return first(callinfos)
+    return MultiCallInfo(callinfos)
 end
 
 function first_method_instance(F, TT; params=current_params())

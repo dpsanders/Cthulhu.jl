@@ -152,6 +152,17 @@ function _descend(mi::MethodInstance; iswarn::Bool, params=current_params(), opt
             end
             callsite = callsites[cid]
 
+            if callsite.info isa MultiCallInfo
+                sub_callsites = map(ci->Callsite(callsite.id, ci), callsite.info.callinfos)
+                menu = CthulhuMenu(sub_callsites, sub_menu=true)
+                cid = request(menu)
+                callsite = callsites[cid]
+            end
+
+            if callsite.info isa GeneratedCallInfo || callsite.info isa FailedCallInfo
+                @error "Calliste %$(callsite.id) failed to be extracted" callsite
+            end
+
             # recurse
             _descend(get_mi(callsite); params=params, optimize=optimize,
                      iswarn=iswarn, debuginfo=debuginfo_key, kwargs...)
