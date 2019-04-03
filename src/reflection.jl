@@ -64,7 +64,7 @@ function find_callsites(CI, mi, slottypes; params=current_params(), kwargs...)
                 while types[1] === typeof(Core._apply)
                     new_types = Any[types[2]]
                     for t in types[3:end]
-                        if !(t <: Tuple)
+                        if !(t <: Tuple) || t isa Union
                             ok = false
                             break
                         end
