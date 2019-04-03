@@ -135,7 +135,7 @@ function Base.show(io::IO, c::Callsite)
         show_callinfo(limiter, c.info)
     elseif c.info isa MultiCallInfo || 
            c.info isa FailedCallInfo ||
-           c.info isa GenFailedCallInfo
+           c.info isa GeneratedCallInfo
         # TODO differentiate by color
         print(limiter, " = call ")
         show_callinfo(limiter, c.info)

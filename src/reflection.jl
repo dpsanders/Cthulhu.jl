@@ -17,6 +17,14 @@ else
     is_return_type(f) = f === Core.Compiler.return_type
 end
 
+if VERSION < v"1.2.0-DEV.573"
+    code_for_method(method, metharg, methsp, world, force=false) = Core.Compiler.code_for_method(method, metharg, methsp, world, force)
+#    get_world() = typemax(UInt) 
+else
+    code_for_method(method, metharg, methsp, world, force=false) = Core.Compiler.specialize_method(method, metharg, methsp, force)
+#    get_world() = Core.Compiler.get_world_counter()
+end
+
 function find_callsites(CI, mi, slottypes; params=current_params(), kwargs...)
     sptypes = sptypes_from_meth_instance(mi)
     callsites = Callsite[]
@@ -148,16 +156,19 @@ function callinfo(sig, rt; params=current_params())
     callinfos = CallInfo[]
     for x in methds
         meth = x[3]
-        if isdefined(meth, :generator) && !isdispatchtuple(Tuple{sig.parameters[2:end]...})
-            push!(callinfos, GeneratedCallInfo(x, rt))
+        atypes = x[1]
+        sparams = x[2]
+        if isdefined(meth, :generator) && !Base.may_invoke_generator(meth, atypes, sparams)
+            push!(callinfos, GeneratedCallInfo(sig, rt))
+        else
+            mi = code_for_method(meth, atypes, sparams, params.world)
+            push!(callinfos, MICallInfo(mi, rt)) 
         end
-        mi = Compiler.code_for_method(meth, sig, x[2], params.world)
-        push!(callinfos, MICallInfo(mi, rt)) 
     end
     
     @assert length(callinfos) != 0
     length(callinfos) == 1 && return first(callinfos)
-    return MultiCallInfo(callinfos)
+    return MultiCallInfo(sig, rt, callinfos)
 end
 
 function first_method_instance(F, TT; params=current_params())
@@ -173,5 +184,5 @@ function first_method_instance(sig; params=current_params())
     if isdefined(meth, :generator) && !isdispatchtuple(Tuple{sig.parameters[2:end]...})
         return nothing
     end
-    mi = Compiler.code_for_method(meth, sig, x[2], params.world)
+    mi = code_for_method(meth, sig, x[2], params.world)
 end

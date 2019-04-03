@@ -49,7 +49,7 @@ function TerminalMenus.header(m::CthulhuMenu)
 end
 
 function TerminalMenus.keypress(m::CthulhuMenu, key::UInt32)
-    sub_menu && return false
+    m.sub_menu && return false
     if key == UInt32('w')
         m.toggle = :warn
         return true
