@@ -12,20 +12,28 @@ struct FailedCallInfo <: CallInfo
     sig
     rt
 end
-get_mi(ci::FailedCallInfo) = error("MethodInstance extraction failed")
+
+function get_mi(ci::FailedCallInfo) 
+    @error "MethodInstance extraction failed" ci.sig ci.rt
+    return nothing
+end
 
 # Generated
 struct GeneratedCallInfo <: CallInfo
     sig
     rt
 end
-get_mi(genci::GeneratedCallInfo) = error("Can't extract MethodInstance from call to generated functions")
+function get_mi(genci::GeneratedCallInfo) 
+    @error "Can't extract MethodInstance from call to generated functions" genci.sig genci.rt
+    return nothing
+end
 
 struct MultiCallInfo <: CallInfo
     sig
     rt
     callinfos::Vector{CallInfo}
 end
+# actual code-error
 get_mi(ci::MultiCallInfo) = error("Can't extract MethodInstance from multiple call informations")
 
 struct ThreadsCallInfo <: CallInfo
