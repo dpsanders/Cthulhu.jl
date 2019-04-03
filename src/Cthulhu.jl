@@ -164,7 +164,11 @@ function _descend(mi::MethodInstance; iswarn::Bool, params=current_params(), opt
             end
 
             # recurse
-            _descend(get_mi(callsite); params=params, optimize=optimize,
+            next_mi = get_mi(callsite)
+            if next_mi === nothing
+                continue
+            end
+            _descend(next_mi; params=params, optimize=optimize,
                      iswarn=iswarn, debuginfo=debuginfo_key, kwargs...)
         elseif toggle === :warn
             iswarn ⊻= true
